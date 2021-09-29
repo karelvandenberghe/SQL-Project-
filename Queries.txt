@@ -1,0 +1,115 @@
+/* QUERY 1 */
+
+/* Write a query that lists each movie, the film category it is classified in,
+the rental duration and the duration quartiles. */
+WITH t1 AS(
+SELECT f.title film_title, c.name category_name, fc.category_id, f.rental_duration,
+NTILE(4) OVER (ORDER BY rental_duration) AS standard_quartile
+FROM category c
+JOIN film_category fc
+ON c.category_id = fc.category_id
+JOIN film f
+ON f.film_id = fc.film_id)
+
+/* Select only the Family Friendly movies from the previous query. */
+SELECT film_title, category_name, rental_duration, standard_quartile
+FROM t1
+WHERE category_id = 2 OR category_id = 3 OR category_id = 4 OR category_id = 5
+OR category_id = 8 OR category_id = 12
+ORDER BY 3
+
+
+
+/* QUERY 2 */
+
+/* Query that lists each film category for each film,
+the rental duration and the duration quartiles */
+WITH t1 AS(
+SELECT c.name category_name, fc.category_id, f.rental_duration,
+NTILE(4) OVER (ORDER BY rental_duration) AS standard_quartile
+FROM category c
+JOIN film_category fc
+ON c.category_id = fc.category_id
+JOIN film f
+ON f.film_id = fc.film_id)
+
+/* Select only the Family Friendly movies from the previous query and count the movies per quartile per category name. */
+SELECT DISTINCT *
+FROM(
+	SELECT category_name, standard_quartile,
+	COUNT (standard_quartile) OVER (PARTITION BY standard_quartile, category_name ORDER BY category_name) AS count
+	FROM t1
+	WHERE category_id = 2 OR category_id = 3 OR category_id = 4 OR category_id = 5 OR category_id = 8 OR category_id = 12) AS t2
+ORDER BY 1,2
+
+
+
+/* QUERY 3 */
+
+WITH t1 AS (
+	SELECT DATE_TRUNC('month', p.payment_date) as date_trunc_month, CONCAT(c.first_name,' ', c.last_name) AS fullname, p.amount
+	FROM customer c
+	JOIN payment p
+	ON p.customer_id = c.customer_id
+	WHERE p.payment_date BETWEEN '2007-01-01' AND '2008-01-01'),
+
+/* Let's write a query that will return the total spendings per month per customer and count the number of payments per month. */
+t2 AS(
+	SELECT DISTINCT *
+	FROM(
+		SELECT fullname, date_trunc_month, SUM(amount) OVER (partition by fullname, date_trunc_month) AS amount_per_month,
+		COUNT(amount) OVER (partition by fullname, date_trunc_month) AS count_per_month
+		FROM t1)sub),
+
+/* Now we will find the 10 top customers in terms of total spendings. */
+t3 AS(
+	SELECT DISTINCT fullname, SUM(amount_per_month) OVER (PARTITION BY fullname) AS total_amount
+	FROM t2
+	ORDER BY 2 DESC
+	LIMIT 10)
+
+/* Let's make a JOIN on the top 10 customers (from table t3) to add the required data. */
+SELECT t2.date_trunc_month, t3.fullname, t2.amount_per_month, t2. count_per_month, t3.total_amount
+FROM t3
+LEFT JOIN t2
+ON t3.fullname = t2.fullname
+ORDER BY 2,1
+
+
+
+/* QUERY 4 */
+
+WITH t1 AS (
+	SELECT DATE_TRUNC('month', p.payment_date) as date_trunc_month, CONCAT(c.first_name,' ', c.last_name) AS fullname, p.amount
+	FROM customer c
+	JOIN payment p
+	ON p.customer_id = c.customer_id
+	WHERE p.payment_date BETWEEN '2007-01-01' AND '2008-01-01'),
+
+t2 AS(
+	SELECT DISTINCT *
+	FROM(
+		SELECT fullname, date_trunc_month, SUM(amount) OVER (partition by fullname, date_trunc_month) AS amount_per_month,
+		COUNT(amount) OVER (partition by fullname, date_trunc_month) AS count_per_month
+		FROM t1)sub),
+
+t3 AS(
+	SELECT DISTINCT fullname, SUM(amount_per_month) OVER (PARTITION BY fullname) AS total_amount
+	FROM t2
+	ORDER BY 2 DESC
+	LIMIT 10),
+
+t4 AS (
+	SELECT t2.date_trunc_month, t3.fullname, t2.amount_per_month,
+	LEAD(t2.amount_per_month) OVER(PARTITION BY t3.fullname ORDER BY DATE_PART('month', t2.date_trunc_month)) AS lead,
+	LEAD(t2.amount_per_month) OVER(PARTITION BY t3.fullname ORDER BY DATE_PART('month', t2.date_trunc_month))
+	- SUM(t2.amount_per_month) AS lead_difference
+	FROM t3
+	LEFT JOIN t2
+	ON t3.fullname = t2.fullname
+	GROUP BY 1,2,3)
+
+SELECT t4.*,
+CASE WHEN t4.lead_difference = (SELECT MAX(t4.lead_difference) FROM t4) THEN 'maximum difference' END AS max_difference
+FROM t4
+ORDER BY 2,1
