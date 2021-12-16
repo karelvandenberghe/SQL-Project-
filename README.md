@@ -5,7 +5,7 @@ August 30th, 2021
 Investigate a Relational Database
 
 ### Description
-In this project, I will use SQL to explore a database related to movie rentals. I will write SQL code to run SQL queries and answer interesting questions about the database. As part of my project submission, I will run SQL queries and build visualizations to showcase the output of my queries.
+In this project, I used SQL to explore a database related to movie rentals. I wrote SQL code to run SQL queries and answer interesting questions about the database. As part of my project submission, I ran SQL queries and build visualizations to showcase the output of my queries.
 
 ### Files used
 Queries.txt
